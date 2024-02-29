@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+pragma abicoder v2;
+pragma solidity ^0.8.0;
+
+import "solana-program/program.hpp"
+#include "solana-program/sysvar.hpp"
+#include "solana-program/sol.hpp"
+
+using namespace solana_program;
+
+struct Token {
+    uint64_t totalSupply;
+    std::map<PublicKey, uint64_t> balances;
+};
+
+class SafeToken : public Program {
+public:
+    void initialize(uint64_t totalSupply) {
+        Token token;
+        token.totalSupply = totalSupply;
+        token.balances[get_current_account()] = totalSupply;
+    }
+
+    void transfer(PublicKey from, PublicKey to, uint64_t amount) {
+        Token token;
+        load_token_data(token);
+
+        if (token.balances[from] < amount) {
+            return; // Insufficient balance, transaction failed
+        }
+
+        token.balances[from] -= amount;
+        token.balances[to] += amount;
+
+        save_token_data(token);
+    }
+
+private:
+    void load_token_data(Token &token) {
+        // Load token data from storage
+    }
+
+    void save_token_data(const Token &token) {
+        // Save token data to storage
+    }
+
+    PublicKey get_current_account() {
+        // Get current account
+    }
+};
+
+extern "C" {
+    void entrypoint(uintptr_t account_info, uintptr_t amount) {
+        SolAccountInfo accounts[2];
+        SafeToken program;
+
+        ProgramState::unpack_from(&accounts[0], account_info);
+
+        uint64_t totalSupply = *reinterpret_cast<uint64_t*>(amount);
+        if (totalSupply > 0) {
+            program.initialize(totalSupply);
+        } else {
+            program.transfer(accounts[0].key, accounts[1].key, totalSupply);
+        }
+    }
+}
